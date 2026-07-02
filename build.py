@@ -12,7 +12,7 @@ Uso:
 import os, sys, json, hashlib, zipfile, tempfile, urllib.request
 from pathlib import Path
 
-MODS_JSON_URL = "https://raw.githubusercontent.com/SEU_USUARIO/valheim-ilhadocongo-mods/main/mods.json"
+MODS_JSON_URL = "https://raw.githubusercontent.com/ClevertonSMz/valheim-ilhadocongo-mods/main/mods.json"
 DEFAULT_OUTPUT = "IlhaDoCongo-Modpack"
 
 def download_mod(url, dest):

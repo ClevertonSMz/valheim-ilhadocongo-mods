@@ -4,7 +4,7 @@ Pacote de mods para jogar no servidor **IlhaDoCongo**.
 
 ## Instalação
 
-1. **Baixe** o arquivo `IlhaDoCongo-Modpack.zip` da seção [Releases](https://github.com/SEU_USUARIO/valheim-ilhadocongo-mods/releases)
+1. **Baixe** o arquivo `IlhaDoCongo-Modpack.zip` da seção [Releases](https://github.com/ClevertonSMz/valheim-ilhadocongo-mods/releases)
 2. **Extraia** tudo em uma pasta qualquer (não precisa ser dentro do Valheim)
 3. **Execute** `install_mods.bat` como Administrador
 4. O instalador vai:
