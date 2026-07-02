@@ -8,22 +8,21 @@ chcp 65001 >nul
 ::   Instalador automatico de mods
 :: ==============================================
 
-set ERR=0
 set LOGFILE=%TEMP%\ilhadocongo_install.log
-
 echo. > "%LOGFILE%"
+echo LOG: Inicio da instalacao em %DATE% %TIME% >> "%LOGFILE%"
+
 echo ===============================================
 echo            ILHA DO CONGO - MODPACK
 echo      Instalador automatico de mods para Valheim
 echo ===============================================
 echo.
-echo [LOG] Iniciando instalacao em %DATE% %TIME% >> "%LOGFILE%"
 
 :: ===== DETECTAR VALHEIM =====
 set VALHEIM_PATH=
 set FIND_METHOD=auto
 
-:: Tenta ler registro do Steam (64 bits)
+:: Tenta registro do Steam
 for /f "skip=2 tokens=2*" %%a in ('reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970" /v "InstallLocation" 2^>nul') do (
     set VALHEIM_PATH=%%b
     set FIND_METHOD=registry
@@ -36,20 +35,12 @@ if not defined VALHEIM_PATH (
 )
 
 :: Tenta caminhos comuns
-if not defined VALHEIM_PATH (
-    if exist "C:\Program Files (x86)\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=C:\Program Files (x86)\Steam\steamapps\common\Valheim
-)
-if not defined VALHEIM_PATH (
-    if exist "C:\Program Files\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=C:\Program Files\Steam\steamapps\common\Valheim
-)
-if not defined VALHEIM_PATH (
-    if exist "D:\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=D:\Steam\steamapps\common\Valheim
-)
-if not defined VALHEIM_PATH (
-    if exist "E:\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=E:\Steam\steamapps\common\Valheim
-)
+if not defined VALHEIM_PATH if exist "C:\Program Files (x86)\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=C:\Program Files (x86)\Steam\steamapps\common\Valheim
+if not defined VALHEIM_PATH if exist "C:\Program Files\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=C:\Program Files\Steam\steamapps\common\Valheim
+if not defined VALHEIM_PATH if exist "D:\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=D:\Steam\steamapps\common\Valheim
+if not defined VALHEIM_PATH if exist "E:\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=E:\Steam\steamapps\common\Valheim
 
-:: Se nao achou, pergunta manualmente
+:: Pergunta manual se nao achou
 if not defined VALHEIM_PATH (
     echo [AVISO] Nao foi possivel encontrar automaticamente a pasta do Valheim.
     echo          Verifique se o jogo esta instalado via Steam.
@@ -61,154 +52,95 @@ if not defined VALHEIM_PATH (
     echo   - E:\Steam\steamapps\common\Valheim
     echo.
     set /p VALHEIM_PATH="Digite manualmente o caminho do Valheim: "
-    if "!VALHEIM_PATH!"=="" (
-        cls
-        echo ===============================================
-        echo               ERRO NA INSTALACAO
-        echo ===============================================
-        echo.
-        echo Motivo: Caminho do Valheim nao informado.
-        echo.
-        echo Para resolver:
-        echo   1. Abra a Steam, clique com botao direito no Valheim
-        echo   2. Propriedades > Arquivos Instalados > Navegar
-        echo   3. Copie o caminho da barra de enderecos
-        echo   4. Execute o instalador novamente e cole o caminho
-        echo.
-        pause
-        exit /b 1
-    )
+    if "!VALHEIM_PATH!"=="" goto ERRO_CAMINHO_VAZIO
     set FIND_METHOD=manual
 )
 
 :: Validar caminho
-if not exist "!VALHEIM_PATH!\valheim.exe" (
-    cls
-    echo ===============================================
-    echo               ERRO NA INSTALACAO
-    echo ===============================================
-    echo.
-    echo Motivo: Valheim nao encontrado no caminho informado.
-    echo.
-    echo Caminho verificado: !VALHEIM_PATH!
-    echo.
-    echo Causas possiveis:
-    echo   - O caminho digitado esta incorreto
-    echo   - O Valheim nao esta instalado nesta maquina
-    echo   - O jogo esta em outra unidade ou biblioteca Steam
-    echo.
-    echo Para resolver:
-    echo   1. Abra a Steam, clique com botao direito no Valheim
-    echo   2. Propriedades > Arquivos Instalados > Navegar
-    echo   3. Copie o caminho completo e tente novamente
-    echo.
-    pause
-    exit /b 1
-)
+if not exist "!VALHEIM_PATH!\valheim.exe" goto ERRO_VALHEIM_NAO_ENCONTRADO
 
 echo [OK] Valheim encontrado: !VALHEIM_PATH! (metodo: !FIND_METHOD!)
-echo [LOG] Valheim em: !VALHEIM_PATH! >> "%LOGFILE%"
+echo LOG: Valheim em: !VALHEIM_PATH! >> "%LOGFILE%"
 echo.
 
-:: ===== PASTA DE MODS =====
+:: ===== VERIFICAR MODS =====
 set MODS_DIR=%~dp0mods
+if not exist "!MODS_DIR!" goto ERRO_SEM_MODS
 
-if not exist "!MODS_DIR!" (
-    cls
-    echo ===============================================
-    echo               ERRO NA INSTALACAO
-    echo ===============================================
-    echo.
-    echo Motivo: Pasta de mods nao encontrada.
-    echo.
-    echo Caminho esperado: !MODS_DIR!
-    echo.
-    echo Causas possiveis:
-    echo   - O pacote foi extraido incompleto
-    echo   - O instalador foi movido para outra pasta
-    echo   - O arquivo ZIP foi extraido em local errado
-    echo.
-    echo Para resolver:
-    echo   1. Delete tudo que voce extraiu
-    echo   2. Extraia o ZIP novamente em uma pasta nova
-    echo   3. Execute o instalador DENTRO da pasta extraida
-    echo.
-    pause
-    exit /b 1
-)
-
-:: ===== CONTAR DLLS DISPONIVEIS =====
 set DLL_COUNT=0
 for /r "!MODS_DIR!" %%f in (*.dll) do set /a DLL_COUNT+=1
-
-if !DLL_COUNT! equ 0 (
-    cls
-    echo ===============================================
-    echo               ERRO NA INSTALACAO
-    echo ===============================================
-    echo.
-    echo Motivo: Nenhum arquivo de mod (.dll) encontrado.
-    echo.
-    echo Pasta verificada: !MODS_DIR!
-    echo.
-    echo Causas possiveis:
-    echo   - O pacote esta corrompido
-    echo   - Os mods nao foram incluidos no ZIP
-    echo   - O antivirus removeu os arquivos .dll
-    echo.
-    echo Para resolver:
-    echo   1. Baixe o pacote novamente do GitHub
-    echo   2. Desative o antivirus temporariamente
-    echo   3. Extraia e execute novamente
-    echo.
-    pause
-    exit /b 1
-)
+if !DLL_COUNT! equ 0 goto ERRO_SEM_DLLS
 
 echo [INFO] !DLL_COUNT! mod(s) encontrado(s) no pacote.
-echo [LOG] DLLs encontradas: !DLL_COUNT! >> "%LOGFILE%"
+echo LOG: DLLs no pacote: !DLL_COUNT! >> "%LOGFILE%"
 echo.
 
-:: ===== CRIAR PASTAS BEPINEX =====
-echo [INFO] Verificando pastas BepInEx...
-if not exist "!VALHEIM_PATH!\BepInEx" (
-    echo [AVISO] Pasta BepInEx nao encontrada.
-    echo [INFO] O BepInEx precisa estar instalado para os mods funcionarem.
-    echo [INFO] Continuando instalacao dos mods mesmo assim...
-    mkdir "!VALHEIM_PATH!\BepInEx" 2>nul
-    mkdir "!VALHEIM_PATH!\BepInEx\plugins" 2>nul
-    mkdir "!VALHEIM_PATH!\BepInEx\config" 2>nul
-    if not exist "!VALHEIM_PATH!\BepInEx\plugins" (
-        cls
-        echo ===============================================
-        echo               ERRO NA INSTALACAO
-        echo ===============================================
-        echo.
-        echo Motivo: Nao foi possivel criar a pasta BepInEx.
-        echo.
-        echo Caminho: !VALHEIM_PATH!\BepInEx\plugins
-        echo.
-        echo Causas possiveis:
-        echo   - O instalador precisa ser executado como Administrador
-        echo   - A pasta do Valheim esta em um local protegido
-        echo   - Permissao de escrita negada
-        echo.
-        echo Para resolver:
-        echo   1. Clique com botao direito no install_mods.bat
-        echo   2. Selecione "Executar como Administrador"
-        echo   3. Tente novamente
-        echo.
-        pause
-        exit /b 1
-    )
+:: ===== VERIFICAR / INSTALAR BEPINEX =====
+set BEPINEX_INSTALLED=0
+if exist "!VALHEIM_PATH!\winhttp.dll" set BEPINEX_INSTALLED=1
+if exist "!VALHEIM_PATH!\BepInEx\BepInEx.cfg" set BEPINEX_INSTALLED=1
+
+if !BEPINEX_INSTALLED! equ 1 (
+    echo [OK] BepInEx ja esta instalado.
+    echo LOG: BepInEx ja presente >> "%LOGFILE%"
 ) else (
-    if not exist "!VALHEIM_PATH!\BepInEx\plugins" mkdir "!VALHEIM_PATH!\BepInEx\plugins" 2>nul
-    if not exist "!VALHEIM_PATH!\BepInEx\config" mkdir "!VALHEIM_PATH!\BepInEx\config" 2>nul
+    echo [AVISO] BepInEx nao encontrado!
+    echo [INFO] Baixando e instalando BepInEx automaticamente...
+    echo LOG: Iniciando download do BepInEx >> "%LOGFILE%"
+    echo.
+
+    :: Baixar BepInExPack do Thunderstore via PowerShell
+    echo    Baixando BepInExPack_Valheim 5.4.2333...
+    powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/' -OutFile '%TEMP%\bepinex.zip' }"
+
+    if not exist "%TEMP%\bepinex.zip" (
+        echo    [FALHA] Download falhou. Tentando com curl...
+        where curl >nul 2>nul
+        if !ERRORLEVEL! equ 0 (
+            curl -sL "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/" -o "%TEMP%\bepinex.zip"
+        )
+    )
+
+    if not exist "%TEMP%\bepinex.zip" goto ERRO_BEPINEX_DOWNLOAD
+
+    :: Extrair no diretorio do Valheim
+    echo    Extraindo BepInEx...
+    powershell -Command "& { Add-Type -Assembly 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::ExtractToDirectory('%TEMP%\bepinex.zip', '!VALHEIM_PATH!', $true) }" 2>nul
+
+    :: Verificar se extraiu corretamente
+    if exist "!VALHEIM_PATH!\winhttp.dll" (
+        echo    [OK] BepInEx instalado com sucesso!
+        echo LOG: BepInEx instalado automaticamente >> "%LOGFILE%"
+    ) else (
+        :: Tentar extracao manual
+        echo    Tentando extracao alternativa...
+        if exist "%TEMP%\bepinex.zip" (
+            powershell -Command "& { Expand-Archive -Path '%TEMP%\bepinex.zip' -DestinationPath '!VALHEIM_PATH!' -Force }" 2>nul
+        )
+        if exist "!VALHEIM_PATH!\winhttp.dll" (
+            echo    [OK] BepInEx instalado com sucesso!
+        ) else (
+            goto ERRO_BEPINEX_EXTRACAO
+        )
+    )
+
+    :: Limpar
+    del "%TEMP%\bepinex.zip" 2>nul
+    echo.
 )
 
+:: ===== GARANTIR PASTAS DE PLUGINS =====
+if not exist "!VALHEIM_PATH!\BepInEx\plugins" mkdir "!VALHEIM_PATH!\BepInEx\plugins" 2>nul
+if not exist "!VALHEIM_PATH!\BepInEx\config" mkdir "!VALHEIM_PATH!\BepInEx\config" 2>nul
+
+:: Verificar permissao
+echo. > "!VALHEIM_PATH!\BepInEx\plugins\.test_write" 2>nul
+if not exist "!VALHEIM_PATH!\BepInEx\plugins\.test_write" goto ERRO_PERMISSAO
+del "!VALHEIM_PATH!\BepInEx\plugins\.test_write" 2>nul
+
 :: ===== COPIAR MODS =====
-echo [INFO] Copiando mods para plugins...
-echo [LOG] Iniciando copia das DLLs >> "%LOGFILE%"
+echo [INFO] Copiando mods para BepInEx/plugins/...
+echo LOG: Copiando mods >> "%LOGFILE%"
 
 set COPY_OK=0
 set COPY_FAIL=0
@@ -219,40 +151,34 @@ for /r "!MODS_DIR!" %%f in (*.dll) do (
     if !ERRORLEVEL! equ 0 (
         set /a COPY_OK+=1
         echo    [OK] %%~nxf
-        echo [LOG] OK: %%~nxf >> "%LOGFILE%"
+        echo LOG: OK - %%~nxf >> "%LOGFILE%"
     ) else (
         set /a COPY_FAIL+=1
         set FAILED_FILES=!FAILED_FILES! %%~nxf
         echo    [FALHA] %%~nxf
-        echo [LOG] FALHA: %%~nxf >> "%LOGFILE%"
+        echo LOG: FALHA - %%~nxf >> "%LOGFILE%"
     )
 )
 
-:: ===== COPIAR CONFIGS =====
+:: Copiar configs se existirem
 if exist "!MODS_DIR!\config" (
+    echo.
     echo [INFO] Copiando configuracoes...
     xcopy /E /Y "!MODS_DIR!\config\*" "!VALHEIM_PATH!\BepInEx\config\" >nul 2>>"%LOGFILE%"
-    if !ERRORLEVEL! equ 0 (
-        echo    [OK] Configuracoes copiadas
-    ) else (
-        echo    [AVISO] Algumas configuracoes podem nao ter sido copiadas
-    )
 )
 
+echo LOG: Resultado - OK:!COPY_OK! FALHA:!COPY_FAIL! >> "%LOGFILE%"
 echo.
-echo [LOG] Copiados: !COPY_OK! | Falhas: !COPY_FAIL! >> "%LOGFILE%"
 
-:: ===== VERIFICAR RESULTADO FINAL =====
+:: ===== TELA FINAL =====
 cls
 echo ===============================================
 if !COPY_FAIL! gtr 0 (
     echo         INSTALACAO PARCIAL - ATENCAO
+) else if !COPY_OK! gtr 0 (
+    echo           INSTALACAO CONCLUIDA!
 ) else (
-    if !COPY_OK! gtr 0 (
-        echo           INSTALACAO CONCLUIDA!
-    ) else (
-        echo            INSTALACAO FALHOU
-    )
+    echo            INSTALACAO FALHOU
 )
 echo ===============================================
 echo.
@@ -267,52 +193,186 @@ if !COPY_OK! gtr 0 (
         echo    - %%~nxf
     )
     echo.
+    echo === Proximo passo ===
+    echo   1. Abra o Valheim pela Steam (BepInEx carrega automaticamente)
+    echo   2. Join Game ^> Join IP
+    echo   3. Digite: 187.77.49.71:2456  |  Senha: 202122
+    echo.
 )
 
 if !COPY_FAIL! gtr 0 (
     echo [ATENCAO] !COPY_FAIL! mod(s) nao puderam ser copiados.
     echo.
-    echo Arquivos com problema:!FAILED_FILES!
+    echo Arquivos:!FAILED_FILES!
     echo.
-    echo Causas possiveis:
-    echo   - Pasta BepInEx\plugins protegida contra escrita
-    echo   - Arquivo .dll bloqueado pelo antivirus
-    echo   - Permissao de escrita insuficiente
-    echo.
-    echo Para resolver: execute o instalador como Administrador.
+    echo Causa provavel: antivirus bloqueando ou permissao insuficiente.
+    echo Para resolver: execute como Administrador.
     echo.
 )
 
 if !COPY_OK! equ 0 (
     echo [ERRO] Nenhum mod foi instalado.
-    echo.
-    echo Causas possiveis:
-    echo   - O pacote esta corrompido ou vazio
-    echo   - A pasta de mods nao contem arquivos .dll
-    echo   - O antivirus removeu os mods durante a extracao
-    echo.
-    echo Para resolver:
-    echo   1. Baixe o pacote novamente
-    echo   2. Desative o antivirus temporariamente
-    echo   3. Execute o instalador como Administrador
+    echo        Baixe o pacote novamente e execute como Administrador.
     echo.
 )
 
-echo.
-echo === Informacoes do servidor ===
+echo ===============================================
 echo   Servidor: IlhaDoCongo
 echo   IP:       187.77.49.71:2456
 echo   Senha:    202122
+echo ===============================================
 echo.
-echo === Para conectar ===
-echo   1. Abra o Valheim (com BepInEx carregando os mods)
-echo   2. Join Game > Join IP
-echo   3. Digite o IP e senha acima
-echo.
-echo === Desinstalar mods ===
-echo   Delete a pasta: !VALHEIM_PATH!\BepInEx\
-echo.
-echo === Log de instalacao ===
-echo   %LOGFILE%
+echo [LOG] %LOGFILE%
 echo.
 pause
+exit /b 0
+
+:: ======================================================================
+:: BLOCOS DE ERRO
+:: ======================================================================
+
+:ERRO_CAMINHO_VAZIO
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: Caminho do Valheim nao informado.
+echo.
+echo Para resolver:
+echo   1. Steam ^> Biblioteca ^> Valheim (botao direito)
+echo   2. Propriedades ^> Arquivos Instalados ^> Navegar
+echo   3. Copie o caminho e execute o instalador novamente
+echo.
+pause
+exit /b 1
+
+:ERRO_VALHEIM_NAO_ENCONTRADO
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: Valheim nao encontrado no caminho informado.
+echo.
+echo Caminho verificado: !VALHEIM_PATH!
+echo.
+echo Causas possiveis:
+echo   - O caminho digitado esta incorreto
+echo   - O Valheim nao esta instalado nesta maquina
+echo   - O jogo esta em outra unidade ou biblioteca Steam
+echo.
+pause
+exit /b 1
+
+:ERRO_SEM_MODS
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: Pasta de mods nao encontrada.
+echo.
+echo Caminho esperado: !MODS_DIR!
+echo.
+echo Causas possiveis:
+echo   - O pacote foi extraido incompleto
+echo   - O instalador foi movido para outra pasta
+echo.
+echo Para resolver:
+echo   1. Delete tudo que voce extraiu
+echo   2. Extraia o ZIP novamente em uma pasta nova
+echo   3. Nao mova o install_mods.bat para fora da pasta
+echo.
+pause
+exit /b 1
+
+:ERRO_SEM_DLLS
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: Nenhum arquivo de mod (.dll) encontrado.
+echo.
+echo Pasta verificada: !MODS_DIR!
+echo.
+echo Causas possiveis:
+echo   - O pacote esta corrompido
+echo   - O antivirus removeu os arquivos .dll
+echo.
+echo Para resolver:
+echo   1. Baixe o pacote novamente do GitHub
+echo   2. Desative o antivirus temporariamente
+echo   3. Extraia e execute novamente
+echo.
+pause
+exit /b 1
+
+:ERRO_PERMISSAO
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: Sem permissao de escrita na pasta do Valheim.
+echo.
+echo Caminho: !VALHEIM_PATH!\BepInEx\plugins
+echo.
+echo Causa: O instalador precisa de permissao de administrador
+echo        para modificar a pasta do Valheim.
+echo.
+echo Para resolver:
+echo   1. Feche esta janela
+echo   2. Clique com botao direito no install_mods.bat
+echo   3. Selecione "Executar como Administrador"
+echo   4. Tente novamente
+echo.
+pause
+exit /b 1
+
+:ERRO_BEPINEX_DOWNLOAD
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: Nao foi possivel baixar o BepInEx.
+echo.
+echo O instalador tentou baixar de:
+echo   https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/
+echo.
+echo Causas possiveis:
+echo   - Sua internet esta desconectada
+echo   - O Thunderstore esta fora do ar
+echo   - Seu firewall bloqueou o download
+echo   - PowerShell nao esta disponivel (Windows 7 ou versao antiga)
+echo.
+echo Para resolver manualmente:
+echo   1. Baixe o BepInExPack em: https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/
+echo   2. Extraia o conteudo DENTRO da pasta do Valheim: !VALHEIM_PATH!
+echo   3. Execute o install_mods.bat novamente
+echo.
+pause
+exit /b 1
+
+:ERRO_BEPINEX_EXTRACAO
+cls
+echo ===============================================
+echo               ERRO NA INSTALACAO
+echo ===============================================
+echo.
+echo Motivo: BepInEx baixado mas nao foi possivel extrair.
+echo.
+echo Causas possiveis:
+echo   - O arquivo baixado esta corrompido
+echo   - Disco sem espaco
+echo   - Permissao insuficiente
+echo.
+echo Para resolver manualmente:
+echo   1. Baixe o BepInExPack em: https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/
+echo   2. Extraia manualmente DENTRO da pasta: !VALHEIM_PATH!
+echo   3. Execute o install_mods.bat novamente
+echo.
+pause
+exit /b 1
