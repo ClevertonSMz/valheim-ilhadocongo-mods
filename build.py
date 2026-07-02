@@ -78,7 +78,7 @@ def main():
     mods_dest = build_dir / "mods"
 
     # Copiar o instalador
-    installer_src = script_dir / "install_mods.bat"
+    installer_src = script_dir / "client" / "install_mods.bat"
     if installer_src.exists():
         import shutil
         shutil.copy2(installer_src, build_dir / "install_mods.bat")
