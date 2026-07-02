@@ -3,11 +3,6 @@ title IlhaDoCongo - Instalador de Mods
 setlocal enabledelayedexpansion
 chcp 65001 >nul
 
-:: ==============================================
-::   ILHA DO CONGO - MODPACK VALHEIM
-::   Instalador automatico de mods
-:: ==============================================
-
 set LOGFILE=%TEMP%\ilhadocongo_install.log
 echo. > "%LOGFILE%"
 echo LOG: Inicio em %DATE% %TIME% >> "%LOGFILE%"
@@ -41,8 +36,14 @@ echo.
 :: ===== VERIFICAR MODS =====
 set MODS_DIR=%~dp0mods
 if not exist "!MODS_DIR!" goto ERRO_SEM_MODS
+
+:: Contar DLLs com dir no lugar de for /r (mais compativel)
 set DLL_COUNT=0
-for /r "!MODS_DIR!" %%f in (*.dll) do set /a DLL_COUNT+=1
+dir /b "!MODS_DIR!\*.dll" > "%TEMP%\ilhadllist.txt" 2>nul
+if exist "%TEMP%\ilhadllist.txt" (
+    for /f "usebackq delims=" %%f in ("%TEMP%\ilhadllist.txt") do set /a DLL_COUNT+=1
+    del "%TEMP%\ilhadllist.txt" 2>nul
+)
 if !DLL_COUNT! equ 0 goto ERRO_SEM_DLLS
 echo [INFO] !DLL_COUNT! mod(s) no pacote.
 echo.
@@ -58,53 +59,36 @@ if !BEPINEX_INSTALLED! equ 1 (
     echo [INFO] BepInEx nao encontrado. Instalando automaticamente...
     echo LOG: Iniciando download BepInEx >> "%LOGFILE%"
 
-    :: Baixar
     echo    Download do Thunderstore...
     powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/' -OutFile '%TEMP%\bepinex.zip' }" >nul 2>&1
     if not exist "%TEMP%\bepinex.zip" (
         where curl >nul 2>nul
-        if !ERRORLEVEL! equ 0 (
-            curl -sL "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/" -o "%TEMP%\bepinex.zip"
-        )
+        if !ERRORLEVEL! equ 0 curl -sL "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/" -o "%TEMP%\bepinex.zip"
     )
     if not exist "%TEMP%\bepinex.zip" goto ERRO_BEPINEX_DOWNLOAD
 
-    :: Extrair para pasta temporaria
     echo    Extraindo...
     set BEPINEX_TMP=%TEMP%\bepinex_install
     if exist "!BEPINEX_TMP!" rmdir /s /q "!BEPINEX_TMP!"
     mkdir "!BEPINEX_TMP!"
 
     powershell -Command "& { Add-Type -Assembly 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::ExtractToDirectory('%TEMP%\bepinex.zip', '!BEPINEX_TMP!', $true) }" >nul 2>&1
-    if not exist "!BEPINEX_TMP!\winhttp.dll" (
-        :: O zip tem uma subpasta BepInExPack_Valheim/, tenta extrair de la
-        if exist "!BEPINEX_TMP!\BepInExPack_Valheim\winhttp.dll" (
-            echo    Movendo arquivos de BepInExPack_Valheim/ para a raiz...
-            xcopy /E /Y "!BEPINEX_TMP!\BepInExPack_Valheim\*" "!VALHEIM_PATH!\" >nul 2>&1
-        )
+
+    :: O ZIP tem os arquivos dentro de BepInExPack_Valheim/
+    if exist "!BEPINEX_TMP!\BepInExPack_Valheim\winhttp.dll" (
+        echo    Movendo arquivos...
+        xcopy /E /Y "!BEPINEX_TMP!\BepInExPack_Valheim\*" "!VALHEIM_PATH!\" >nul 2>&1
     ) else (
         xcopy /E /Y "!BEPINEX_TMP!\*" "!VALHEIM_PATH!\" >nul 2>&1
     )
 
-    :: Verificar se winhttp.dll foi para o lugar certo
     if exist "!VALHEIM_PATH!\winhttp.dll" (
         echo    [OK] BepInEx instalado com sucesso!
         echo LOG: BepInEx instalado >> "%LOGFILE%"
     ) else (
-        :: Fallback: extrair direto com Expand-Archive
-        echo    Tentando extracao alternativa...
-        powershell -Command "& { Add-Type -Assembly 'System.IO.Compression.FileSystem'; $zip = [System.IO.Compression.ZipFile]::OpenRead('%TEMP%\bepinex.zip'); $entry = $zip.Entries | Where-Object { $_.FullName -like 'BepInExPack_Valheim/winhttp.dll' } | Select-Object -First 1; if ($entry) { $dest = [System.IO.Path]::Combine('!VALHEIM_PATH!', $entry.Name); [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true) } }" >nul 2>&1
-        if exist "!VALHEIM_PATH!\winhttp.dll" (
-            echo    Extraindo pacote completo...
-            :: Extraiu winhttp, agora extrai tudo
-            powershell -Command "& { Add-Type -Assembly 'System.IO.Compression.FileSystem'; $zip = [System.IO.Compression.ZipFile]::OpenRead('%TEMP%\bepinex.zip'); foreach ($entry in $zip.Entries) { if ($entry.FullName -like 'BepInExPack_Valheim/*' -and !$entry.FullName.EndsWith('/')) { $rel = $entry.FullName.Substring('BepInExPack_Valheim/'.Length); $out = [System.IO.Path]::Combine('!VALHEIM_PATH!', $rel); $dir = [System.IO.Path]::GetDirectoryName($out); if (!(Test-Path $dir)) { mkdir $dir -Force >$null }; [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $out, $true) } }; $zip.Dispose() }" >nul 2>&1
-            echo    [OK] BepInEx instalado com sucesso!
-        ) else (
-            goto ERRO_BEPINEX_EXTRACAO
-        )
+        goto ERRO_BEPINEX_EXTRACAO
     )
 
-    :: Limpeza
     rmdir /s /q "!BEPINEX_TMP!" 2>nul
     del "%TEMP%\bepinex.zip" 2>nul
     echo.
@@ -124,17 +108,19 @@ set COPY_OK=0
 set COPY_FAIL=0
 set FAILED_FILES=
 
-for /r "!MODS_DIR!" %%f in (*.dll) do (
-    copy /Y "%%f" "!VALHEIM_PATH!\BepInEx\plugins\" >nul 2>>"%LOGFILE%"
+dir /b "!MODS_DIR!\*.dll" > "%TEMP%\ilhadllist.txt" 2>nul
+for /f "usebackq delims=" %%f in ("%TEMP%\ilhadllist.txt") do (
+    copy /Y "!MODS_DIR!\%%f" "!VALHEIM_PATH!\BepInEx\plugins\" >nul 2>>"%LOGFILE%"
     if !ERRORLEVEL! equ 0 (
         set /a COPY_OK+=1
-        echo    [OK] %%~nxf
+        echo    [OK] %%f
     ) else (
         set /a COPY_FAIL+=1
-        set FAILED_FILES=!FAILED_FILES! %%~nxf
-        echo    [FALHA] %%~nxf
+        set FAILED_FILES=!FAILED_FILES! %%f
+        echo    [FALHA] %%f
     )
 )
+del "%TEMP%\ilhadllist.txt" 2>nul
 
 if exist "!MODS_DIR!\config" (
     xcopy /E /Y "!MODS_DIR!\config\*" "!VALHEIM_PATH!\BepInEx\config\" >nul 2>>"%LOGFILE%"
@@ -155,7 +141,7 @@ echo.
 if !COPY_OK! gtr 0 (
     echo [SUCESSO] !COPY_OK! mod(s) instalado(s)!
     echo.
-    for /r "!MODS_DIR!" %%f in (*.dll) do echo    - %%~nxf
+    dir /b "!MODS_DIR!\*.dll" 2>nul
     echo.
     echo Proximo passo:
     echo   1. Abra o Valheim pela Steam
@@ -249,7 +235,7 @@ echo.
 echo Verifique sua conexao com a internet.
 echo Para instalar manualmente:
 echo   1. Baixe de: https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/
-echo   2. Extraia o arquivo BepInExPack_Valheim/winhttp.dll para: !VALHEIM_PATH!
+echo   2. Extraia BepInExPack_Valheim/winhttp.dll para: !VALHEIM_PATH!
 echo   3. Extraia a pasta BepInEx/ para: !VALHEIM_PATH!
 echo   4. Execute o instalador novamente
 echo.
