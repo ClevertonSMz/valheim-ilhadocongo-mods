@@ -1,0 +1,27 @@
+{
+  "server": "IlhaDoCongo",
+  "server_ip": "187.77.49.71",
+  "version": "1.0.0",
+  "mods": [
+    {
+      "id": "denikson-BepInExPack_Valheim",
+      "name": "BepInExPack Valheim",
+      "version": "5.4.2333",
+      "required": true,
+      "type": "framework",
+      "download_url": "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/",
+      "install_path": ".",
+      "extract_subdir": "BepInExPack_Valheim"
+    },
+    {
+      "id": "HackShardGaming-World_of_Valheim_SSC",
+      "name": "ServerSideCharacters (SSC)",
+      "version": "0.7.1",
+      "required": true,
+      "type": "mod",
+      "download_url": "https://thunderstore.io/package/download/HackShardGaming/World_of_Valheim_SSC/0.7.1/",
+      "install_path": "BepInEx/plugins",
+      "dll_files": ["WorldofValheimServerSideCharacters.dll"]
+    }
+  ]
+}
