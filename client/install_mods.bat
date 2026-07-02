@@ -21,7 +21,6 @@ if not defined VALHEIM_PATH if exist "C:\Program Files (x86)\Steam\steamapps\com
 if not defined VALHEIM_PATH if exist "C:\Program Files\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=C:\Program Files\Steam\steamapps\common\Valheim
 if not defined VALHEIM_PATH if exist "D:\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=D:\Steam\steamapps\common\Valheim
 if not defined VALHEIM_PATH if exist "E:\Steam\steamapps\common\Valheim\valheim.exe" set VALHEIM_PATH=E:\Steam\steamapps\common\Valheim
-
 if not defined VALHEIM_PATH (
     echo [AVISO] Nao foi possivel encontrar automaticamente.
     echo.
@@ -36,7 +35,6 @@ echo.
 :: ===== VERIFICAR MODS =====
 set MODS_DIR=%~dp0mods
 if not exist "!MODS_DIR!" goto ERRO_SEM_MODS
-
 set DLL_COUNT=0
 dir /b "!MODS_DIR!\*.dll" > "%TEMP%\ilhadllist.txt" 2>nul
 if exist "%TEMP%\ilhadllist.txt" (
@@ -52,72 +50,77 @@ set BEPINEX_INSTALLED=0
 if exist "!VALHEIM_PATH!\winhttp.dll" set BEPINEX_INSTALLED=1
 if exist "!VALHEIM_PATH!\BepInEx\BepInEx.cfg" set BEPINEX_INSTALLED=1
 
-if !BEPINEX_INSTALLED! equ 1 (
-    echo [OK] BepInEx ja instalado.
-) else (
-    echo [INFO] BepInEx nao encontrado. Instalando...
-    echo LOG: Iniciando download BepInEx >> "%LOGFILE%"
+if !BEPINEX_INSTALLED! equ 1 goto BEPI_EXISTE
 
-    echo    Baixando BepInExPack 5.4.2333 do Thunderstore...
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/' -OutFile '%TEMP%\bepinex.zip'" > "%TEMP%\bepi.log" 2>&1
-    if not exist "%TEMP%\bepinex.zip" (
-        where curl >nul 2>nul
-        if !ERRORLEVEL! equ 0 curl -sL "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/" -o "%TEMP%\bepinex.zip"
-    )
-    if not exist "%TEMP%\bepinex.zip" goto ERRO_BEPINEX_DOWNLOAD
+:: ===== INSTALAR BEPINEX =====
+echo [INFO] BepInEx nao encontrado. Instalando...
+echo LOG: Iniciando download BepInEx >> "%LOGFILE%"
 
-    echo    Extraindo...
-    if exist "%TEMP%\bepinex_install" rmdir /s /q "%TEMP%\bepinex_install"
-    mkdir "%TEMP%\bepinex_install"
+echo    Baixando BepInExPack 5.4.2333 do Thunderstore...
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/' -OutFile '%TEMP%\bepinex.zip'" > "%TEMP%\bepi.log" 2>&1
+if not exist "%TEMP%\bepinex.zip" (
+    where curl >nul 2>nul
+    if !ERRORLEVEL! equ 0 curl -sL "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/" -o "%TEMP%\bepinex.zip"
+)
+if not exist "%TEMP%\bepinex.zip" goto ERRO_BEPINEX_DOWNLOAD
 
-    :: --- Metodo 1: Expand-Archive (PowerShell 5+) ---
-    echo Metodo 1 (Expand-Archive)... >> "%TEMP%\bepi.log"
-    powershell -Command "Expand-Archive -Path '%TEMP%\bepinex.zip' -DestinationPath '%TEMP%\bepinex_install' -Force" >> "%TEMP%\bepi.log" 2>&1
-    if exist "%TEMP%\bepinex_install\winhttp.dll" goto BEPI_COPY
-    if exist "%TEMP%\bepinex_install\BepInExPack_Valheim\winhttp.dll" goto BEPI_COPY_SUBDIR
+echo    Extraindo...
+if exist "%TEMP%\bepinex_install" rmdir /s /q "%TEMP%\bepinex_install"
+mkdir "%TEMP%\bepinex_install"
 
-    :: --- Metodo 2: ZipFile.ExtractToDirectory ---
-    echo Metodo 2 (ZipFile)... >> "%TEMP%\bepi.log"
-    if exist "%TEMP%\bepinex_install" rmdir /s /q "%TEMP%\bepinex_install"
-    mkdir "%TEMP%\bepinex_install"
-    powershell -Command "Add-Type -Assembly 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::ExtractToDirectory('%TEMP%\bepinex.zip', '%TEMP%\bepinex_install')" >> "%TEMP%\bepi.log" 2>&1
-    if exist "%TEMP%\bepinex_install\winhttp.dll" goto BEPI_COPY
-    if exist "%TEMP%\bepinex_install\BepInExPack_Valheim\winhttp.dll" goto BEPI_COPY_SUBDIR
+:: --- Metodo 1: Expand-Archive (PowerShell 5+) ---
+echo Metodo 1 (Expand-Archive)... >> "%TEMP%\bepi.log"
+powershell -Command "Expand-Archive -Path '%TEMP%\bepinex.zip' -DestinationPath '%TEMP%\bepinex_install' -Force" >> "%TEMP%\bepi.log" 2>&1
+if exist "%TEMP%\bepinex_install\winhttp.dll" goto BEPI_COPY
+if exist "%TEMP%\bepinex_install\BepInExPack_Valheim\winhttp.dll" goto BEPI_COPY_SUBDIR
 
-    :: --- Metodo 3: Shell.Application COM ---
-    echo Metodo 3 (Shell COM)... >> "%TEMP%\bepi.log"
-    if exist "%TEMP%\bepinex_install" rmdir /s /q "%TEMP%\bepinex_install"
-    mkdir "%TEMP%\bepinex_install"
-    powershell -Command "$sh = New-Object -ComObject Shell.Application; $zp = $sh.NameSpace('%TEMP%\bepinex.zip'); $dt = $sh.NameSpace('%TEMP%\bepinex_install'); $dt.CopyHere($zp.Items(), 16)" >> "%TEMP%\bepi.log" 2>&1
-    if exist "%TEMP%\bepinex_install\winhttp.dll" goto BEPI_COPY
-    if exist "%TEMP%\bepinex_install\BepInExPack_Valheim\winhttp.dll" goto BEPI_COPY_SUBDIR
+:: --- Metodo 2: ZipFile.ExtractToDirectory ---
+echo Metodo 2 (ZipFile)... >> "%TEMP%\bepi.log"
+if exist "%TEMP%\bepinex_install" rmdir /s /q "%TEMP%\bepinex_install"
+mkdir "%TEMP%\bepinex_install"
+powershell -Command "Add-Type -Assembly 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::ExtractToDirectory('%TEMP%\bepinex.zip', '%TEMP%\bepinex_install')" >> "%TEMP%\bepi.log" 2>&1
+if exist "%TEMP%\bepinex_install\winhttp.dll" goto BEPI_COPY
+if exist "%TEMP%\bepinex_install\BepInExPack_Valheim\winhttp.dll" goto BEPI_COPY_SUBDIR
 
-    :: Todos falharam
-    echo.
-    echo [FALHA] Extraiu mas winhttp.dll nao encontrado.
-    type "%TEMP%\bepi.log" 2>nul
-    goto ERRO_BEPINEX_EXTRACAO
+:: --- Metodo 3: Shell.Application COM ---
+echo Metodo 3 (Shell COM)... >> "%TEMP%\bepi.log"
+if exist "%TEMP%\bepinex_install" rmdir /s /q "%TEMP%\bepinex_install"
+mkdir "%TEMP%\bepinex_install"
+powershell -Command "$sh = New-Object -ComObject Shell.Application; $zp = $sh.NameSpace('%TEMP%\bepinex.zip'); $dt = $sh.NameSpace('%TEMP%\bepinex_install'); $dt.CopyHere($zp.Items(), 16)" >> "%TEMP%\bepi.log" 2>&1
+if exist "%TEMP%\bepinex_install\winhttp.dll" goto BEPI_COPY
+if exist "%TEMP%\bepinex_install\BepInExPack_Valheim\winhttp.dll" goto BEPI_COPY_SUBDIR
+
+:: Todos falharam
+echo.
+echo [FALHA] Nao foi possivel extrair o BepInEx.
+type "%TEMP%\bepi.log" 2>nul
+goto ERRO_BEPINEX_EXTRACAO
 
 :BEPI_COPY_SUBDIR
-    echo    ZIP tem subpasta BepInExPack_Valheim/. Movendo...
-    xcopy /E /Y "%TEMP%\bepinex_install\BepInExPack_Valheim\*" "!VALHEIM_PATH!\" >nul 2>&1
-    if exist "!VALHEIM_PATH!\winhttp.dll" goto BEPI_OK
-    goto ERRO_BEPINEX_EXTRACAO
+echo    ZIP tem subpasta BepInExPack_Valheim/. Movendo...
+xcopy /E /Y "%TEMP%\bepinex_install\BepInExPack_Valheim\*" "!VALHEIM_PATH!\" >nul 2>&1
+if exist "!VALHEIM_PATH!\winhttp.dll" goto BEPI_OK
+goto ERRO_BEPINEX_EXTRACAO
 
 :BEPI_COPY
-    echo    ZIP tem arquivos na raiz. Copiando...
-    xcopy /E /Y "%TEMP%\bepinex_install\*" "!VALHEIM_PATH!\" >nul 2>&1
-    if exist "!VALHEIM_PATH!\winhttp.dll" goto BEPI_OK
-    goto ERRO_BEPINEX_EXTRACAO
+echo    ZIP tem arquivos na raiz. Copiando...
+xcopy /E /Y "%TEMP%\bepinex_install\*" "!VALHEIM_PATH!\" >nul 2>&1
+if exist "!VALHEIM_PATH!\winhttp.dll" goto BEPI_OK
+goto ERRO_BEPINEX_EXTRACAO
 
 :BEPI_OK
-    echo    [OK] BepInEx instalado!
-    echo LOG: BepInEx instalado >> "%LOGFILE%"
-    rmdir /s /q "%TEMP%\bepinex_install" 2>nul
-    del "%TEMP%\bepinex.zip" 2>nul
-    del "%TEMP%\bepi.log" 2>nul
-    echo.
-)
+echo    [OK] BepInEx instalado!
+echo LOG: BepInEx instalado >> "%LOGFILE%"
+rmdir /s /q "%TEMP%\bepinex_install" 2>nul
+del "%TEMP%\bepinex.zip" 2>nul
+del "%TEMP%\bepi.log" 2>nul
+echo.
+goto FIM_INSTALACAO_BEPI
+
+:BEPI_EXISTE
+echo [OK] BepInEx ja instalado.
+
+:FIM_INSTALACAO_BEPI
 
 :: ===== PREPARAR PASTAS =====
 if not exist "!VALHEIM_PATH!\BepInEx\plugins" mkdir "!VALHEIM_PATH!\BepInEx\plugins" 2>nul
@@ -157,9 +160,13 @@ echo.
 :: ===== TELA FINAL =====
 cls
 echo ===============================================
-if !COPY_FAIL! gtr 0 (echo         INSTALACAO PARCIAL - ATENCAO
-) else if !COPY_OK! gtr 0 (echo           INSTALACAO CONCLUIDA!
-) else (echo            INSTALACAO FALHOU)
+if !COPY_FAIL! gtr 0 (
+    echo         INSTALACAO PARCIAL - ATENCAO
+) else if !COPY_OK! gtr 0 (
+    echo           INSTALACAO CONCLUIDA!
+) else (
+    echo            INSTALACAO FALHOU
+)
 echo ===============================================
 echo.
 
@@ -199,11 +206,7 @@ echo               ERRO NA INSTALACAO
 echo ===============================================
 echo.
 echo Motivo: Valheim nao encontrado em: !VALHEIM_PATH!
-echo.
-echo Para resolver:
-echo   1. Steam ^> Biblioteca ^> Valheim (botao direito)
-echo   2. Propriedades ^> Arquivos Instalados ^> Navegar
-echo   3. Copie o caminho e execute o instalador novamente
+echo Para resolver: Steam > Biblioteca > Valheim (botao direito) > Propriedades > Arquivos Instalados > Navegar
 echo.
 pause & exit /b 1
 
@@ -213,9 +216,8 @@ echo ===============================================
 echo               ERRO NA INSTALACAO
 echo ===============================================
 echo.
-echo Motivo: Pasta mods/ nao encontrada.
-echo Caminho: %~dp0mods
-echo Extraia o ZIP completo.
+echo Motivo: Pasta mods/ nao encontrada em %~dp0mods
+echo Extraia o ZIP completo antes de executar.
 echo.
 pause & exit /b 1
 
@@ -236,8 +238,7 @@ echo ===============================================
 echo               ERRO NA INSTALACAO
 echo ===============================================
 echo.
-echo Motivo: Sem permissao de escrita.
-echo Caminho: !VALHEIM_PATH!\BepInEx\plugins
+echo Motivo: Sem permissao de escrita em !VALHEIM_PATH!\BepInEx\plugins
 echo Execute como Administrador.
 echo.
 pause & exit /b 1
@@ -249,13 +250,8 @@ echo               ERRO NA INSTALACAO
 echo ===============================================
 echo.
 echo Motivo: Nao foi possivel baixar o BepInEx.
-echo
 echo Verifique sua internet.
-echo
-echo Instalacao manual:
-echo   1. https://thunderstore.io/package/denikson/BepInExPack_Valheim/
-echo   2. Baixe e extraia para: !VALHEIM_PATH!
-echo   3. Execute o instalador novamente
+echo Instalacao manual: https://thunderstore.io/package/denikson/BepInExPack_Valheim/
 echo.
 pause & exit /b 1
 
@@ -266,13 +262,7 @@ echo               ERRO NA INSTALACAO
 echo ===============================================
 echo.
 echo Motivo: Nao foi possivel extrair o BepInEx.
-echo
 echo Log: %TEMP%\bepi.log
-echo
-echo Instalacao manual:
-echo   1. https://thunderstore.io/package/denikson/BepInExPack_Valheim/
-echo   2. Baixe e extraia o conteudo da pasta BepInExPack_Valheim/
-echo      para: !VALHEIM_PATH!
-echo   3. Execute o instalador novamente
+echo Instalacao manual: Baixe BepInExPack, extraia para !VALHEIM_PATH!, execute novamente.
 echo.
 pause & exit /b 1
